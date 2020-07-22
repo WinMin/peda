@@ -19,6 +19,9 @@ import signal
 import traceback
 import codecs
 
+from scapy.all import *
+from scapy.layers.http import *
+
 # point to absolute path of peda.py
 PEDAFILE = os.path.abspath(os.path.expanduser(__file__))
 if os.path.islink(PEDAFILE):
@@ -5998,6 +6001,38 @@ class PEDACmd(object):
         return
     utils.options = ["int2hexstr", "list2hexstr", "str2intlist"]
 
+    def showprotocol(self,*arg):
+        """
+        Usage:
+        showprotocol bytesLen startAddr protocol
+        """
+        (bytesLen,startAddr,proto) = normalize_argv(arg, 3)
+        if (startAddr,bytesLen,proto) == (None,None,None):
+            ls()
+
+        maps = peda.get_vmmap()
+        if  startAddr < maps[0][0] or startAddr > maps[-1][0]:
+            raise gdb.GdbError("startaddr is Illegal!")
+            
+        if proto == None:
+            proto = Ether
+        else:
+            proto = getattr(scapy.all,proto)
+   
+        if proto == None:
+            raise gdb.GdbError("No this protocol")
+
+        proc = gdb.inferiors()[0]
+        data = proc.read_memory(startAddr,bytesLen).tobytes()
+
+        proto(data).show()
+
+        return
+    
+        
+
+
+
 ###########################################################################
 class pedaGDBCommand(gdb.Command):
     """
@@ -6020,7 +6055,7 @@ class pedaGDBCommand(gdb.Command):
                 func = getattr(pedacmd, cmd)
                 try:
                     # reset memoized cache
-                    reset_cache(sys.modules['__main__'])
+                    # reset_cache(sys.modules['__main__'])
                     func(*arg[1:])
                 except Exception as e:
                     if config.Option.get("debug") == "on":
